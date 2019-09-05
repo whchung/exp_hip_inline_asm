@@ -53,6 +53,15 @@ float __buffer_load_dword(float* ptr, unsigned offset) {
 }
 
 __device__
+__global__ void vector_plus1_naive(float* A_d) {
+    unsigned index = (hipBlockIdx_x * hipBlockDim_x + hipThreadIdx_x);
+    unsigned offset = index * sizeof(float);
+
+    // original logic in C:
+    A_d[index] = A_d[index] + 1.0f;
+}
+
+__device__
 __global__ void vector_plus1(float* A_d) {
     unsigned index = (hipBlockIdx_x * hipBlockDim_x + hipThreadIdx_x);
     unsigned offset = index * sizeof(float);
@@ -175,6 +184,26 @@ void __buffer_store_dword_generic_unroll_16(float* ptr, unsigned p0, unsigned p1
     s_waitcnt 0 \n \
     " :
       : "v"(value[0]), "v"(value[1]), "v"(value[2]), "v"(value[3]), "v"(value[4]), "v"(value[5]), "v"(value[6]), "v"(value[7]), "v"(value[8]), "v"(value[9]), "v"(value[10]), "v"(value[11]), "v"(value[12]), "v"(value[13]), "v"(value[14]), "v"(value[15]), "v"(p1), "s"(input), "s"(O[0]), "s"(O[1]), "s"(O[2]), "s"(O[3]), "s"(O[4]), "s"(O[5]), "s"(O[6]), "s"(O[7]), "s"(O[8]), "s"(O[9]), "s"(O[10]), "s"(O[11]), "s"(O[12]), "s"(O[13]), "s"(O[14]), "s"(O[15]));
+}
+
+__device__
+__global__ void vector_plus1_naive_unroll_16(float* A_d) {
+    constexpr unsigned N_per_thread = 16;
+    unsigned p0 = hipBlockIdx_x * hipBlockDim_x;
+    unsigned p1 = hipThreadIdx_x * N_per_thread;
+    unsigned O[N_per_thread] = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15 };
+
+    float dest[N_per_thread];
+
+    // original logic in C
+    for (unsigned i = 0; i < N_per_thread; ++i) {
+      dest[i] = A_d[p0 + p1 + O[i]] + 1.0f;
+    }
+
+    // Store results back
+    for (unsigned i = 0; i < N_per_thread; ++i) {
+      A_d[p0 + p1 + O[i]] = dest[i];
+    }
 }
 
 __device__
