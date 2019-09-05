@@ -98,7 +98,7 @@ void __buffer_load_dword_generic_unroll_16(float* dest, float* ptr_in, unsigned 
 }
 
 __device__
-__global__ void vector_plus1_generic(float* A_d) {
+__global__ void vector_plus1_generic_unroll_16(float* A_d) {
     constexpr unsigned N_per_thread = 16;
     unsigned p0 = hipBlockIdx_x * hipBlockDim_x;
     unsigned p1 = hipThreadIdx_x * N_per_thread;
@@ -129,6 +129,34 @@ __global__ void vector_plus1_generic(float* A_d) {
       dest[i] = dest[i] + 1.0f;
     }
 
+
+    // Store results back
+    for (unsigned i = 0; i < N_per_thread; ++i) {
+      A_d[p0 + p1 + O[i]] = dest[i];
+    }
+}
+
+__device__
+__global__ void vector_plus1_generic(float* A_d) {
+    constexpr unsigned N_per_thread = 16;
+    unsigned p0 = hipBlockIdx_x * hipBlockDim_x;
+    unsigned p1 = hipThreadIdx_x * N_per_thread;
+    unsigned O[N_per_thread] = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15 };
+
+    float dest[N_per_thread];
+
+    // original logic in C
+    //for (unsigned i = 0; i < N_per_thread; ++i) {
+    //  dest[i] = A_d[p0 + p1 + O[i]] + 1.0f;
+    //}
+
+    // Use inline assembly
+    // Undesirable effect: s_waitcnt 0 after every load
+    //
+    //__buffer_load_dword_genric(ptr, offset) = *(ptr + offset)
+    for (unsigned i = 0; i < N_per_thread; ++i) {
+      dest[i] = __buffer_load_dword_generic(A_d, p0 * sizeof(float), p1 * sizeof(float), O[i] * sizeof(float)) + 1.0f;
+    }
 
     // Store results back
     for (unsigned i = 0; i < N_per_thread; ++i) {
@@ -173,6 +201,15 @@ int main(int argc, char* argv[]) {
     printf("info: launch 'vector_plus1_generic' kernel\n");
     hipLaunchKernelGGL(vector_plus1_generic, dim3(1), dim3(64), 0, 0, A_d);
 
+    //printf("info: launch 'vector_plus1_generic_unroll_16' kernel\n");
+    //hipLaunchKernelGGL(vector_plus1_generic_unroll_16, dim3(1), dim3(64), 0, 0, A_d);
+
+    //printf("info: launch 'vector_plus1_store' kernel\n");
+    //hipLaunchKernelGGL(vector_plus1_store, dim3(N/64), dim3(64), 0, 0, A_d);
+
+    //printf("info: launch 'vector_plus1_generic_store' kernel\n");
+    //hipLaunchKernelGGL(vector_plus1_generic_store, dim3(1), dim3(64), 0, 0, A_d);
+
     printf("info: copy Device2Host\n");
     CHECK(hipMemcpy(A_h, A_d, Nbytes, hipMemcpyDeviceToHost));
 
@@ -181,18 +218,17 @@ int main(int argc, char* argv[]) {
 #ifndef CHECK_RESULT
 #define CHECK_RESULT (1)
 #endif
+    printf("GPU CPU\n");
 #if CHECK_RESULT
     printf("info: check result\n");
 #else
-    printf("GPU CPU\n");
 #endif
     for (size_t i = 0; i < N; i++) {
+        printf("%f %f\n", A_h[i], C_h[i]);
 #if CHECK_RESULT
         if (A_h[i] != C_h[i] + 1.0f) {
             CHECK(hipErrorUnknown);
         }
-#else
-        printf("%f %f\n", A_h[i], C_h[i]);
 #endif
     }
 #if CHECK_RESULT
