@@ -13,6 +13,25 @@
 
 typedef int __attribute__((ext_vector_type(4))) intx4;
 
+
+// ptr[offset] = value
+__device__
+void __buffer_store_dword(float* ptr, unsigned offset, float value) {
+  intx4 input {0};
+  // fill in byte 0 - 1
+  *reinterpret_cast<float**>(&input) = ptr;
+  // fill in byte 2
+  reinterpret_cast<int*>(&input)[2] = -1;
+  // fill in byte 3
+  reinterpret_cast<int*>(&input)[3] = 0x00027000;
+
+  asm volatile("\n \
+    buffer_store_dword %1, %2, %0, 0 offen offset:0 \n \
+    s_waitcnt 0 \n \
+    " :
+      : "s"(input), "v"(value), "v"(offset));
+}
+
 __device__
 float __buffer_load_dword(float* ptr, unsigned offset) {
   float output;
@@ -43,6 +62,18 @@ __global__ void vector_plus1(float* A_d) {
     //
     // __buffer_load_dword(ptr, offset) = *(ptr + offset)
     A_d[index] = __buffer_load_dword(A_d, offset);
+}
+
+__device__
+__global__ void vector_plus1_store(float* A_d) {
+    unsigned index = (hipBlockIdx_x * hipBlockDim_x + hipThreadIdx_x);
+    unsigned offset = index * sizeof(float);
+
+    // original logic in C:
+    // A_d[index] = A_d[index] + 1.0f;
+    //
+    float result = __buffer_load_dword(A_d, offset) + 1.0f;
+    __buffer_store_dword(A_d, offset, result);
 }
 
 __device__
