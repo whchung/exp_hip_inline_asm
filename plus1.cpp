@@ -66,6 +66,38 @@ float __buffer_load_dword_generic(float* ptr, unsigned p0, unsigned p1, unsigned
 }
 
 __device__
+void __buffer_load_dword_generic_unroll_16(float* dest, float* ptr_in, unsigned p0, unsigned p1, unsigned* O) {
+  intx4 input {0};
+  // fill in byte 0 - 1
+  *reinterpret_cast<float**>(&input) = ptr_in + p0;
+  // fill in byte 2
+  reinterpret_cast<int*>(&input)[2] = -1;
+  // fill in byte 3
+  reinterpret_cast<int*>(&input)[3] = 0x00027000;
+
+  asm volatile("\n \
+    buffer_load_dword %0, %16, %17, %18 offen offset:0 \n \
+    buffer_load_dword %1, %16, %17, %19 offen offset:0 \n \
+    buffer_load_dword %2, %16, %17, %20 offen offset:0 \n \
+    buffer_load_dword %3, %16, %17, %21 offen offset:0 \n \
+    buffer_load_dword %4, %16, %17, %22 offen offset:0 \n \
+    buffer_load_dword %5, %16, %17, %23 offen offset:0 \n \
+    buffer_load_dword %6, %16, %17, %24 offen offset:0 \n \
+    buffer_load_dword %7, %16, %17, %25 offen offset:0 \n \
+    buffer_load_dword %8, %16, %17, %26 offen offset:0 \n \
+    buffer_load_dword %9, %16, %17, %27 offen offset:0 \n \
+    buffer_load_dword %10, %16, %17, %28 offen offset:0 \n \
+    buffer_load_dword %11, %16, %17, %29 offen offset:0 \n \
+    buffer_load_dword %12, %16, %17, %30 offen offset:0 \n \
+    buffer_load_dword %13, %16, %17, %31 offen offset:0 \n \
+    buffer_load_dword %14, %16, %17, %32 offen offset:0 \n \
+    buffer_load_dword %15, %16, %17, %33 offen offset:0 \n \
+    s_waitcnt 0 \n \
+    " : "=v"(dest[0]), "=v"(dest[1]), "=v"(dest[2]), "=v"(dest[3]), "=v"(dest[4]), "=v"(dest[5]), "=v"(dest[6]), "=v"(dest[7]), "=v"(dest[8]), "=v"(dest[9]), "=v"(dest[10]), "=v"(dest[11]), "=v"(dest[12]), "=v"(dest[13]), "=v"(dest[14]), "=v"(dest[15])
+      : "v"(p1), "s"(input), "s"(O[0]), "s"(O[1]), "s"(O[2]), "s"(O[3]), "s"(O[4]), "s"(O[5]), "s"(O[6]), "s"(O[7]), "s"(O[8]), "s"(O[9]), "s"(O[10]), "s"(O[11]), "s"(O[12]), "s"(O[13]), "s"(O[14]), "s"(O[15]));
+}
+
+__device__
 __global__ void vector_plus1_generic(float* A_d) {
     constexpr unsigned N_per_thread = 16;
     unsigned p0 = hipBlockIdx_x * hipBlockDim_x;
@@ -79,11 +111,26 @@ __global__ void vector_plus1_generic(float* A_d) {
     //  dest[i] = A_d[p0 + p1 + O[i]] + 1.0f;
     //}
 
+    // Use inline assembly
+    // Undesirable effect: s_waitcnt 0 after every load
+    //
     //__buffer_load_dword_genric(ptr, offset) = *(ptr + offset)
+    //for (unsigned i = 0; i < N_per_thread; ++i) {
+    //  dest[i] = __buffer_load_dword_generic(A_d, p0 * sizeof(float), p1 * sizeof(float), O[i] * sizeof(float)) + 1.0f;
+    //}
+
+    // Use manually unrolled inline assembly
+    unsigned O2[N_per_thread];
     for (unsigned i = 0; i < N_per_thread; ++i) {
-      dest[i] = __buffer_load_dword_generic(A_d, p0 * sizeof(float), p1 * sizeof(float), O[i] * sizeof(float)) + 1.0f;
+      O2[i] = O[i] * sizeof(float);
+    }
+    __buffer_load_dword_generic_unroll_16(dest, A_d, p0 * sizeof(float), p1 * sizeof(float), O2);
+    for (unsigned i = 0; i < N_per_thread; ++i) {
+      dest[i] = dest[i] + 1.0f;
     }
 
+
+    // Store results back
     for (unsigned i = 0; i < N_per_thread; ++i) {
       A_d[p0 + p1 + O[i]] = dest[i];
     }
@@ -129,13 +176,26 @@ int main(int argc, char* argv[]) {
     printf("info: copy Device2Host\n");
     CHECK(hipMemcpy(A_h, A_d, Nbytes, hipMemcpyDeviceToHost));
 
+//#define CHECK_RESULT (0)
+
+#ifndef CHECK_RESULT
+#define CHECK_RESULT (1)
+#endif
+#if CHECK_RESULT
     printf("info: check result\n");
-    //printf("GPU CPU\n");
+#else
+    printf("GPU CPU\n");
+#endif
     for (size_t i = 0; i < N; i++) {
-        //printf("%f %f\n", A_h[i], C_h[i]);
+#if CHECK_RESULT
         if (A_h[i] != C_h[i] + 1.0f) {
             CHECK(hipErrorUnknown);
         }
+#else
+        printf("%f %f\n", A_h[i], C_h[i]);
+#endif
     }
+#if CHECK_RESULT
     printf("PASSED!\n");
+#endif
 }
