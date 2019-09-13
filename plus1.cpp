@@ -442,6 +442,64 @@ __global__ void vector_plus1_global_load_unroll_16(float* A_d) {
     }
 }
 
+// ptr[offset] = value
+__device__
+void __global_store_dword_unroll_16(float* ptr, unsigned long long* O, float* value) {
+  asm volatile("\n \
+    global_store_dword %0, %16, %32, offset:0 \n \
+    global_store_dword %1, %17, %32, offset:0 \n \
+    global_store_dword %2, %18, %32, offset:0 \n \
+    global_store_dword %3, %19, %32, offset:0 \n \
+    global_store_dword %4, %20, %32, offset:0 \n \
+    global_store_dword %5, %21, %32, offset:0 \n \
+    global_store_dword %6, %22, %32, offset:0 \n \
+    global_store_dword %7, %23, %32, offset:0 \n \
+    global_store_dword %8, %24, %32, offset:0 \n \
+    global_store_dword %9, %25, %32, offset:0 \n \
+    global_store_dword %10, %26, %32, offset:0 \n \
+    global_store_dword %11, %27, %32, offset:0 \n \
+    global_store_dword %12, %28, %32, offset:0 \n \
+    global_store_dword %13, %29, %32, offset:0 \n \
+    global_store_dword %14, %30, %32, offset:0 \n \
+    global_store_dword %15, %31, %32, offset:0 \n \
+    s_waitcnt 0 \n \
+    " :
+      : "v"(O[0]), "v"(O[1]), "v"(O[2]), "v"(O[3]), "v"(O[4]), "v"(O[5]), "v"(O[6]), "v"(O[7]), "v"(O[8]), "v"(O[9]), "v"(O[10]), "v"(O[11]), "v"(O[12]), "v"(O[13]), "v"(O[14]), "v"(O[15]), "v"(value[0]), "v"(value[1]), "v"(value[2]), "v"(value[3]), "v"(value[4]), "v"(value[5]), "v"(value[6]), "v"(value[7]), "v"(value[8]), "v"(value[9]), "v"(value[10]), "v"(value[11]), "v"(value[12]), "v"(value[13]), "v"(value[14]), "v"(value[15]), "s"(ptr));
+}
+
+__device__
+__global__ void vector_plus1_global_store_unroll_16(float* A_d) {
+    constexpr unsigned N_per_thread = 16;
+    unsigned p0 = hipBlockIdx_x * hipBlockDim_x;
+    unsigned p1 = hipThreadIdx_x * N_per_thread;
+    unsigned O[N_per_thread] = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15 };
+
+    float dest[N_per_thread];
+
+    // original logic in C
+    //for (unsigned i = 0; i < N_per_thread; ++i) {
+    //  dest[i] = A_d[p0 + p1 + O[i]] + 1.0f;
+    //}
+
+    // Use inline assembly
+    // Undesirable effect: s_waitcnt 0 after every load
+    //unsigned baseOffset = p0 + p1;
+    //for (unsigned i = 0; i < N_per_thread; ++i) {
+    //  dest[i] = __global_load_dword(A_d, (baseOffset + O[i]) * sizeof(float)) + 1.0f;
+    //}
+
+    // Use manually unrolled inline assembly
+    unsigned long long O2[N_per_thread];
+    for (unsigned i = 0; i < N_per_thread; ++i) {
+      O2[i] = (p0 + p1 + O[i]) * sizeof(float);
+    }
+    __global_load_dword_unroll_16(dest, A_d, O2);
+    for (unsigned i = 0; i < N_per_thread; ++i) {
+      dest[i] = dest[i] + 1.0f;
+    }
+    __global_store_dword_unroll_16(A_d, O2, dest);
+}
+
 int main(int argc, char* argv[]) {
     float *A_d, *C_d;
     float *A_h, *C_h;
@@ -501,8 +559,8 @@ int main(int argc, char* argv[]) {
     //printf("info: launch 'vector_plus1_buffer_store_generic_unroll_16' kernel\n");
     //hipLaunchKernelGGL(vector_plus1_buffer_store_generic_unroll_16, dim3(blocks), dim3(threadsPerBlock), 0, 0, A_d);
 
-    //printf("info: launch 'vector_plus1_generic_store_unroll_16' kernel\n");
-    //hipLaunchKernelGGL(vector_plus1_generic_store_unroll_16, dim3(blocks), dim3(threadsPerBlock), 0, 0, A_d);
+    printf("info: launch 'vector_plus1_global_store_unroll_16' kernel\n");
+    hipLaunchKernelGGL(vector_plus1_global_store_unroll_16, dim3(blocks), dim3(threadsPerBlock), 0, 0, A_d);
 
     printf("info: copy Device2Host\n");
     CHECK(hipMemcpy(A_h, A_d, Nbytes, hipMemcpyDeviceToHost));
