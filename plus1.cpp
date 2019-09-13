@@ -238,7 +238,7 @@ void __buffer_store_dword_generic_unroll_16(float* ptr, unsigned p0, unsigned p1
 __device__
 __global__ void vector_plus1_naive_unroll_16(float* A_d) {
     constexpr unsigned N_per_thread = 16;
-    unsigned p0 = hipBlockIdx_x * hipBlockDim_x;
+    unsigned p0 = hipBlockIdx_x * hipBlockDim_x * N_per_thread;
     unsigned p1 = hipThreadIdx_x * N_per_thread;
     unsigned O[N_per_thread] = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15 };
 
@@ -258,7 +258,7 @@ __global__ void vector_plus1_naive_unroll_16(float* A_d) {
 __device__
 __global__ void vector_plus1_buffer_load_generic_unroll_16(float* A_d) {
     constexpr unsigned N_per_thread = 16;
-    unsigned p0 = hipBlockIdx_x * hipBlockDim_x;
+    unsigned p0 = hipBlockIdx_x * hipBlockDim_x * N_per_thread;
     unsigned p1 = hipThreadIdx_x * N_per_thread;
     unsigned O[N_per_thread] = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15 };
 
@@ -297,7 +297,7 @@ __global__ void vector_plus1_buffer_load_generic_unroll_16(float* A_d) {
 __device__
 __global__ void vector_plus1_buffer_store_generic_unroll_16(float* A_d) {
     constexpr unsigned N_per_thread = 16;
-    unsigned p0 = hipBlockIdx_x * hipBlockDim_x;
+    unsigned p0 = hipBlockIdx_x * hipBlockDim_x * N_per_thread;
     unsigned p1 = hipThreadIdx_x * N_per_thread;
     unsigned O[N_per_thread] = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15 };
 
@@ -331,7 +331,7 @@ __global__ void vector_plus1_buffer_store_generic_unroll_16(float* A_d) {
 __device__
 __global__ void vector_plus1_buffer_load_generic(float* A_d) {
     constexpr unsigned N_per_thread = 16;
-    unsigned p0 = hipBlockIdx_x * hipBlockDim_x;
+    unsigned p0 = hipBlockIdx_x * hipBlockDim_x * N_per_thread;
     unsigned p1 = hipThreadIdx_x * N_per_thread;
     unsigned O[N_per_thread] = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15 };
 
@@ -359,7 +359,7 @@ __global__ void vector_plus1_buffer_load_generic(float* A_d) {
 __device__
 __global__ void vector_plus1_buffer_store_generic(float* A_d) {
     constexpr unsigned N_per_thread = 16;
-    unsigned p0 = hipBlockIdx_x * hipBlockDim_x;
+    unsigned p0 = hipBlockIdx_x * hipBlockDim_x * N_per_thread;
     unsigned p1 = hipThreadIdx_x * N_per_thread;
     unsigned O[N_per_thread] = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15 };
 
@@ -408,7 +408,7 @@ void __global_load_dword_unroll_16(float* dest, float* ptr, unsigned long long* 
 __device__
 __global__ void vector_plus1_global_load_unroll_16(float* A_d) {
     constexpr unsigned N_per_thread = 16;
-    unsigned p0 = hipBlockIdx_x * hipBlockDim_x;
+    unsigned p0 = hipBlockIdx_x * hipBlockDim_x * N_per_thread;
     unsigned p1 = hipThreadIdx_x * N_per_thread;
     unsigned O[N_per_thread] = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15 };
 
@@ -470,7 +470,7 @@ void __global_store_dword_unroll_16(float* ptr, unsigned long long* O, float* va
 __device__
 __global__ void vector_plus1_global_store_unroll_16(float* A_d) {
     constexpr unsigned N_per_thread = 16;
-    unsigned p0 = hipBlockIdx_x * hipBlockDim_x;
+    unsigned p0 = hipBlockIdx_x * hipBlockDim_x * N_per_thread;
     unsigned p1 = hipThreadIdx_x * N_per_thread;
     unsigned O[N_per_thread] = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15 };
 
@@ -503,7 +503,7 @@ __global__ void vector_plus1_global_store_unroll_16(float* A_d) {
 int main(int argc, char* argv[]) {
     float *A_d, *C_d;
     float *A_h, *C_h;
-    size_t N = 1024;
+    size_t N = 1024 * 4 * 3;
     size_t Nbytes = N * sizeof(float);
     static int device = 0;
     CHECK(hipSetDevice(device));
@@ -516,7 +516,7 @@ int main(int argc, char* argv[]) {
     CHECK(A_h == 0 ? hipErrorMemoryAllocation : hipSuccess);
     C_h = (float*)malloc(Nbytes);
     CHECK(C_h == 0 ? hipErrorMemoryAllocation : hipSuccess);
-    // Fill with Phi + i
+    // Fill with 1.0f + i
     for (size_t i = 0; i < N; i++) {
         A_h[i] = 1.0f + i;
         C_h[i] = A_h[i];
@@ -526,11 +526,22 @@ int main(int argc, char* argv[]) {
     CHECK(hipMalloc(&A_d, Nbytes));
     //CHECK(hipMalloc(&C_d, Nbytes));
 
-    printf("info: copy Host2Device\n");
+    printf("info: copy Host2Device %p->%p %zu bytes\n", A_h, A_d, Nbytes);
     CHECK(hipMemcpy(A_d, A_h, Nbytes, hipMemcpyHostToDevice));
 
-    unsigned threadsPerBlock = 64;
-    unsigned blocks = N/threadsPerBlock;
+    unsigned threadsPerBlock = 256;
+    unsigned unrollFactor = 16;
+    unsigned blocks = N/threadsPerBlock/unrollFactor;
+
+    threadsPerBlock = 256;
+    unrollFactor = 16;
+    blocks = N/threadsPerBlock/unrollFactor;
+    printf("N: %zu unrollFactor: %u threadsPerBlock: %u blocks: %u\n", N, unrollFactor, threadsPerBlock, blocks);
+    //printf("info: launch 'vector_plus1_naive' kernel\n");
+    //hipLaunchKernelGGL(vector_plus1_naive, dim3(blocks), dim3(threadsPerBlock), 0, 0, A_d);
+
+    //printf("info: launch 'vector_plus1_naive_unroll_16' kernel\n");
+    //hipLaunchKernelGGL(vector_plus1_naive_unroll_16, dim3(blocks), dim3(threadsPerBlock), 0, 0, A_d);
 
     //printf("info: launch 'vector_plus1_buffer_load' kernel\n");
     //hipLaunchKernelGGL(vector_plus1_buffer_load, dim3(blocks), dim3(threadsPerBlock), 0, 0, A_d);
@@ -538,31 +549,36 @@ int main(int argc, char* argv[]) {
     //printf("info: launch 'vector_plus1_global_load' kernel\n");
     //hipLaunchKernelGGL(vector_plus1_global_load, dim3(blocks), dim3(threadsPerBlock), 0, 0, A_d);
     
-    //printf("info: launch 'vector_plus1_buffer_load_generic' kernel\n");
-    //hipLaunchKernelGGL(vector_plus1_buffer_load_generic, dim3(blocks), dim3(threadsPerBlock), 0, 0, A_d);
-
-    //printf("info: launch 'vector_plus1_buffer_load_generic_unroll_16' kernel\n");
-    //hipLaunchKernelGGL(vector_plus1_buffer_load_generic_unroll_16, dim3(blocks), dim3(threadsPerBlock), 0, 0, A_d);
-
-    //printf("info: launch 'vector_plus1_global_load_unroll_16' kernel\n");
-    //hipLaunchKernelGGL(vector_plus1_global_load_unroll_16, dim3(blocks), dim3(threadsPerBlock), 0, 0, A_d);
-
     //printf("info: launch 'vector_plus1_buffer_store' kernel\n");
     //hipLaunchKernelGGL(vector_plus1_buffer_store, dim3(blocks), dim3(threadsPerBlock), 0, 0, A_d);
 
     //printf("info: launch 'vector_plus1_global_store' kernel\n");
     //hipLaunchKernelGGL(vector_plus1_global_store, dim3(blocks), dim3(threadsPerBlock), 0, 0, A_d);
 
+    //printf("info: launch 'vector_plus1_global_store_unroll_16' kernel\n");
+    //hipLaunchKernelGGL(vector_plus1_global_store_unroll_16, dim3(blocks), dim3(threadsPerBlock), 0, 0, A_d);
+
+    // XXX TBD
+    printf("info: launch 'vector_plus1_global_load_unroll_16' kernel\n");
+    hipLaunchKernelGGL(vector_plus1_global_load_unroll_16, dim3(blocks), dim3(threadsPerBlock), 0, 0, A_d);
+
+    // XXX TBD
+    //printf("info: launch 'vector_plus1_buffer_load_generic' kernel\n");
+    //hipLaunchKernelGGL(vector_plus1_buffer_load_generic, dim3(blocks), dim3(threadsPerBlock), 0, 0, A_d);
+
+    // XXX TBD
+    //printf("info: launch 'vector_plus1_buffer_load_generic_unroll_16' kernel\n");
+    //hipLaunchKernelGGL(vector_plus1_buffer_load_generic_unroll_16, dim3(blocks), dim3(threadsPerBlock), 0, 0, A_d);
+
+    // XXX TBD
     //printf("info: launch 'vector_plus1_buffer_store_generic' kernel\n");
     //hipLaunchKernelGGL(vector_plus1_buffer_store_generic, dim3(blocks), dim3(threadsPerBlock), 0, 0, A_d);
 
+    // XXX TBD
     //printf("info: launch 'vector_plus1_buffer_store_generic_unroll_16' kernel\n");
     //hipLaunchKernelGGL(vector_plus1_buffer_store_generic_unroll_16, dim3(blocks), dim3(threadsPerBlock), 0, 0, A_d);
 
-    printf("info: launch 'vector_plus1_global_store_unroll_16' kernel\n");
-    hipLaunchKernelGGL(vector_plus1_global_store_unroll_16, dim3(blocks), dim3(threadsPerBlock), 0, 0, A_d);
-
-    printf("info: copy Device2Host\n");
+    printf("info: copy Device2Host %p->%p %zu bytes\n", A_d, A_h, Nbytes);
     CHECK(hipMemcpy(A_h, A_d, Nbytes, hipMemcpyDeviceToHost));
 
 //#define CHECK_RESULT (0)
@@ -575,15 +591,23 @@ int main(int argc, char* argv[]) {
     printf("info: check result\n");
 #else
 #endif
+    bool passed = true;
     for (size_t i = 0; i < N; i++) {
-        printf("%f %f\n", A_h[i], C_h[i]);
+        //printf("%f %f\n", A_h[i], C_h[i]);
 #if CHECK_RESULT
         if (A_h[i] != C_h[i] + 1.0f) {
-            CHECK(hipErrorUnknown);
+        //if (A_h[i] != i) {
+            //CHECK(hipErrorUnknown);
+            printf("INCORRECT %zu %f %f\n", i, A_h[i], C_h[i]);
+            passed = false;
+            break;
         }
 #endif
     }
+    hipFree(A_d);
 #if CHECK_RESULT
-    printf("PASSED!\n");
+    if (passed)
+      printf("PASSED!\n");
 #endif
+    return 0;
 }
