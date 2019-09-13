@@ -295,7 +295,7 @@ __global__ void vector_plus1_buffer_load_generic_unroll_16(float* A_d) {
 }
 
 __device__
-__global__ void vector_plus1_generic_store_unroll_16(float* A_d) {
+__global__ void vector_plus1_buffer_store_generic_unroll_16(float* A_d) {
     constexpr unsigned N_per_thread = 16;
     unsigned p0 = hipBlockIdx_x * hipBlockDim_x;
     unsigned p1 = hipThreadIdx_x * N_per_thread;
@@ -357,7 +357,7 @@ __global__ void vector_plus1_buffer_load_generic(float* A_d) {
 }
 
 __device__
-__global__ void vector_plus1_generic_store(float* A_d) {
+__global__ void vector_plus1_buffer_store_generic(float* A_d) {
     constexpr unsigned N_per_thread = 16;
     unsigned p0 = hipBlockIdx_x * hipBlockDim_x;
     unsigned p1 = hipThreadIdx_x * N_per_thread;
@@ -380,7 +380,7 @@ __global__ void vector_plus1_generic_store(float* A_d) {
     }
 }
 
-//__global_load_dword_unroll_16(dest, A_d, baseOffset, O2);
+//__global_load_dword_unroll_16(dest, A_d, O);
 __device__
 void __global_load_dword_unroll_16(float* dest, float* ptr, unsigned long long* O) {
   asm volatile("\n \
@@ -486,8 +486,8 @@ int main(int argc, char* argv[]) {
     //printf("info: launch 'vector_plus1_buffer_load_generic_unroll_16' kernel\n");
     //hipLaunchKernelGGL(vector_plus1_buffer_load_generic_unroll_16, dim3(blocks), dim3(threadsPerBlock), 0, 0, A_d);
 
-    printf("info: launch 'vector_plus1_global_load_unroll_16' kernel\n");
-    hipLaunchKernelGGL(vector_plus1_global_load_unroll_16, dim3(blocks), dim3(threadsPerBlock), 0, 0, A_d);
+    //printf("info: launch 'vector_plus1_global_load_unroll_16' kernel\n");
+    //hipLaunchKernelGGL(vector_plus1_global_load_unroll_16, dim3(blocks), dim3(threadsPerBlock), 0, 0, A_d);
 
     //printf("info: launch 'vector_plus1_buffer_store' kernel\n");
     //hipLaunchKernelGGL(vector_plus1_buffer_store, dim3(blocks), dim3(threadsPerBlock), 0, 0, A_d);
@@ -495,8 +495,11 @@ int main(int argc, char* argv[]) {
     //printf("info: launch 'vector_plus1_global_store' kernel\n");
     //hipLaunchKernelGGL(vector_plus1_global_store, dim3(blocks), dim3(threadsPerBlock), 0, 0, A_d);
 
-    //printf("info: launch 'vector_plus1_generic_store' kernel\n");
-    //hipLaunchKernelGGL(vector_plus1_generic_store, dim3(blocks), dim3(threadsPerBlock), 0, 0, A_d);
+    //printf("info: launch 'vector_plus1_buffer_store_generic' kernel\n");
+    //hipLaunchKernelGGL(vector_plus1_buffer_store_generic, dim3(blocks), dim3(threadsPerBlock), 0, 0, A_d);
+
+    //printf("info: launch 'vector_plus1_buffer_store_generic_unroll_16' kernel\n");
+    //hipLaunchKernelGGL(vector_plus1_buffer_store_generic_unroll_16, dim3(blocks), dim3(threadsPerBlock), 0, 0, A_d);
 
     //printf("info: launch 'vector_plus1_generic_store_unroll_16' kernel\n");
     //hipLaunchKernelGGL(vector_plus1_generic_store_unroll_16, dim3(blocks), dim3(threadsPerBlock), 0, 0, A_d);
