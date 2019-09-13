@@ -53,6 +53,20 @@ float __buffer_load_dword(float* ptr, unsigned offset) {
 }
 
 __device__
+float __global_load_dword(float* ptr, unsigned off) {
+  float output;
+  unsigned long long offset = off;
+
+  asm volatile("\n \
+    global_load_dword %0, %1, %2, offset:0 \n \
+    s_waitcnt 0 \n \
+    " : "=v"(output)
+      : "v"(offset), "s"(ptr));
+
+  return output;
+}
+
+__device__
 __global__ void vector_plus1_naive(float* A_d) {
     unsigned index = (hipBlockIdx_x * hipBlockDim_x + hipThreadIdx_x);
     unsigned offset = index * sizeof(float);
@@ -62,7 +76,7 @@ __global__ void vector_plus1_naive(float* A_d) {
 }
 
 __device__
-__global__ void vector_plus1(float* A_d) {
+__global__ void vector_plus1_mubuf(float* A_d) {
     unsigned index = (hipBlockIdx_x * hipBlockDim_x + hipThreadIdx_x);
     unsigned offset = index * sizeof(float);
 
@@ -70,7 +84,19 @@ __global__ void vector_plus1(float* A_d) {
     // A_d[index] = A_d[index] + 1.0f;
     //
     // __buffer_load_dword(ptr, offset) = *(ptr + offset)
-    A_d[index] = __buffer_load_dword(A_d, offset);
+    A_d[index] = __buffer_load_dword(A_d, offset) + 1.0f;
+}
+
+__device__
+__global__ void vector_plus1_global(float* A_d) {
+    unsigned index = (hipBlockIdx_x * hipBlockDim_x + hipThreadIdx_x);
+    unsigned offset = index * sizeof(float);
+
+    // original logic in C:
+    // A_d[index] = A_d[index] + 1.0f;
+    //
+    // __buffer_load_dword(ptr, offset) = *(ptr + offset)
+    A_d[index] = __global_load_dword(A_d, offset) + 1.0f;
 }
 
 __device__
@@ -360,25 +386,29 @@ int main(int argc, char* argv[]) {
     printf("info: copy Host2Device\n");
     CHECK(hipMemcpy(A_d, A_h, Nbytes, hipMemcpyHostToDevice));
 
-    //const unsigned blocks = 1;
-    //const unsigned threadsPerBlock = 16;
-    //printf("info: launch 'vector_plus1' kernel\n");
-    //hipLaunchKernelGGL(vector_plus1, dim3(blocks), dim3(threadsPerBlock), 0, 0, A_d);
+    unsigned threadsPerBlock = 64;
+    unsigned blocks = N/threadsPerBlock;
 
+    //printf("info: launch 'vector_plus1_mubuf' kernel\n");
+    //hipLaunchKernelGGL(vector_plus1_mubuf, dim3(blocks), dim3(threadsPerBlock), 0, 0, A_d);
+
+    printf("info: launch 'vector_plus1_global' kernel\n");
+    hipLaunchKernelGGL(vector_plus1_global, dim3(blocks), dim3(threadsPerBlock), 0, 0, A_d);
+    
     //printf("info: launch 'vector_plus1_generic' kernel\n");
-    //hipLaunchKernelGGL(vector_plus1_generic, dim3(1), dim3(64), 0, 0, A_d);
+    //hipLaunchKernelGGL(vector_plus1_generic, dim3(blocks), dim3(threadsPerBlock), 0, 0, A_d);
 
     //printf("info: launch 'vector_plus1_generic_unroll_16' kernel\n");
-    //hipLaunchKernelGGL(vector_plus1_generic_unroll_16, dim3(1), dim3(64), 0, 0, A_d);
+    //hipLaunchKernelGGL(vector_plus1_generic_unroll_16, dim3(blocks), dim3(threadsPerBlock), 0, 0, A_d);
 
     //printf("info: launch 'vector_plus1_store' kernel\n");
-    //hipLaunchKernelGGL(vector_plus1_store, dim3(N/64), dim3(64), 0, 0, A_d);
+    //hipLaunchKernelGGL(vector_plus1_store, dim3(blocks), dim3(threadsPerBlock), 0, 0, A_d);
 
     //printf("info: launch 'vector_plus1_generic_store' kernel\n");
-    //hipLaunchKernelGGL(vector_plus1_generic_store, dim3(1), dim3(64), 0, 0, A_d);
+    //hipLaunchKernelGGL(vector_plus1_generic_store, dim3(blocks), dim3(threadsPerBlock), 0, 0, A_d);
 
-    printf("info: launch 'vector_plus1_generic_store_unroll_16' kernel\n");
-    hipLaunchKernelGGL(vector_plus1_generic_store_unroll_16, dim3(1), dim3(64), 0, 0, A_d);
+    //printf("info: launch 'vector_plus1_generic_store_unroll_16' kernel\n");
+    //hipLaunchKernelGGL(vector_plus1_generic_store_unroll_16, dim3(blocks), dim3(threadsPerBlock), 0, 0, A_d);
 
     printf("info: copy Device2Host\n");
     CHECK(hipMemcpy(A_h, A_d, Nbytes, hipMemcpyDeviceToHost));
