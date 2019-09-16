@@ -238,7 +238,7 @@ void __buffer_store_dword_generic_unroll_16(float* ptr, unsigned p0, unsigned p1
 __device__
 __global__ void vector_plus1_naive_unroll_16(float* A_d) {
     constexpr unsigned N_per_thread = 16;
-    unsigned p0 = hipBlockIdx_x * hipBlockDim_x;
+    unsigned p0 = hipBlockIdx_x * hipBlockDim_x * N_per_thread;
     unsigned p1 = hipThreadIdx_x * N_per_thread;
     unsigned O[N_per_thread] = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15 };
 
@@ -258,7 +258,7 @@ __global__ void vector_plus1_naive_unroll_16(float* A_d) {
 __device__
 __global__ void vector_plus1_buffer_load_generic_unroll_16(float* A_d) {
     constexpr unsigned N_per_thread = 16;
-    unsigned p0 = hipBlockIdx_x * hipBlockDim_x;
+    unsigned p0 = hipBlockIdx_x * hipBlockDim_x * N_per_thread;
     unsigned p1 = hipThreadIdx_x * N_per_thread;
     unsigned O[N_per_thread] = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15 };
 
@@ -297,7 +297,7 @@ __global__ void vector_plus1_buffer_load_generic_unroll_16(float* A_d) {
 __device__
 __global__ void vector_plus1_buffer_store_generic_unroll_16(float* A_d) {
     constexpr unsigned N_per_thread = 16;
-    unsigned p0 = hipBlockIdx_x * hipBlockDim_x;
+    unsigned p0 = hipBlockIdx_x * hipBlockDim_x * N_per_thread;
     unsigned p1 = hipThreadIdx_x * N_per_thread;
     unsigned O[N_per_thread] = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15 };
 
@@ -331,7 +331,7 @@ __global__ void vector_plus1_buffer_store_generic_unroll_16(float* A_d) {
 __device__
 __global__ void vector_plus1_buffer_load_generic(float* A_d) {
     constexpr unsigned N_per_thread = 16;
-    unsigned p0 = hipBlockIdx_x * hipBlockDim_x;
+    unsigned p0 = hipBlockIdx_x * hipBlockDim_x * N_per_thread;
     unsigned p1 = hipThreadIdx_x * N_per_thread;
     unsigned O[N_per_thread] = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15 };
 
@@ -359,7 +359,7 @@ __global__ void vector_plus1_buffer_load_generic(float* A_d) {
 __device__
 __global__ void vector_plus1_buffer_store_generic(float* A_d) {
     constexpr unsigned N_per_thread = 16;
-    unsigned p0 = hipBlockIdx_x * hipBlockDim_x;
+    unsigned p0 = hipBlockIdx_x * hipBlockDim_x * N_per_thread;
     unsigned p1 = hipThreadIdx_x * N_per_thread;
     unsigned O[N_per_thread] = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15 };
 
@@ -408,7 +408,7 @@ void __global_load_dword_unroll_16(float* dest, float* ptr, unsigned long long* 
 __device__
 __global__ void vector_plus1_global_load_unroll_16(float* A_d) {
     constexpr unsigned N_per_thread = 16;
-    unsigned p0 = hipBlockIdx_x * hipBlockDim_x;
+    unsigned p0 = hipBlockIdx_x * hipBlockDim_x * N_per_thread;
     unsigned p1 = hipThreadIdx_x * N_per_thread;
     unsigned O[N_per_thread] = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15 };
 
@@ -470,7 +470,7 @@ void __global_store_dword_unroll_16(float* ptr, unsigned long long* O, float* va
 __device__
 __global__ void vector_plus1_global_store_unroll_16(float* A_d) {
     constexpr unsigned N_per_thread = 16;
-    unsigned p0 = hipBlockIdx_x * hipBlockDim_x;
+    unsigned p0 = hipBlockIdx_x * hipBlockDim_x * N_per_thread;
     unsigned p1 = hipThreadIdx_x * N_per_thread;
     unsigned O[N_per_thread] = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15 };
 
