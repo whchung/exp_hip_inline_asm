@@ -274,7 +274,7 @@ __global__ void vector_plus1_buffer_load_generic_unroll_16(float* A_d) {
     //
     //__buffer_load_dword_genric(ptr, offset) = *(ptr + offset)
     //for (unsigned i = 0; i < N_per_thread; ++i) {
-    //  dest[i] = __buffer_load_dword_generic(A_d, p0 * sizeof(float), p1 * sizeof(float), O[i] * sizeof(float)) + 1.0f;
+    //  dest[i] = __buffer_load_dword_generic(A_d, p0, p1 * sizeof(float), O[i] * sizeof(float)) + 1.0f;
     //}
 
     // Use manually unrolled inline assembly
@@ -282,7 +282,7 @@ __global__ void vector_plus1_buffer_load_generic_unroll_16(float* A_d) {
     for (unsigned i = 0; i < N_per_thread; ++i) {
       O2[i] = O[i] * sizeof(float);
     }
-    __buffer_load_dword_generic_unroll_16(dest, A_d, p0 * sizeof(float), p1 * sizeof(float), O2);
+    __buffer_load_dword_generic_unroll_16(dest, A_d, p0, p1 * sizeof(float), O2);
     for (unsigned i = 0; i < N_per_thread; ++i) {
       dest[i] = dest[i] + 1.0f;
     }
@@ -313,7 +313,7 @@ __global__ void vector_plus1_buffer_store_generic_unroll_16(float* A_d) {
     //
     //__buffer_load_dword_genric(ptr, offset) = *(ptr + offset)
     //for (unsigned i = 0; i < N_per_thread; ++i) {
-    //  dest[i] = __buffer_load_dword_generic(A_d, p0 * sizeof(float), p1 * sizeof(float), O[i] * sizeof(float)) + 1.0f;
+    //  dest[i] = __buffer_load_dword_generic(A_d, p0, p1 * sizeof(float), O[i] * sizeof(float)) + 1.0f;
     //}
 
     // Use manually unrolled inline assembly
@@ -321,7 +321,7 @@ __global__ void vector_plus1_buffer_store_generic_unroll_16(float* A_d) {
     for (unsigned i = 0; i < N_per_thread; ++i) {
       O2[i] = O[i] * sizeof(float);
     }
-    __buffer_load_dword_generic_unroll_16(dest, A_d, p0 * sizeof(float), p1 * sizeof(float), O2);
+    __buffer_load_dword_generic_unroll_16(dest, A_d, p0, p1 * sizeof(float), O2);
     for (unsigned i = 0; i < N_per_thread; ++i) {
       dest[i] = dest[i] + 1.0f;
     }
@@ -347,7 +347,7 @@ __global__ void vector_plus1_buffer_load_generic(float* A_d) {
     //
     //__buffer_load_dword_genric(ptr, offset) = *(ptr + offset)
     for (unsigned i = 0; i < N_per_thread; ++i) {
-      dest[i] = __buffer_load_dword_generic(A_d, p0 * sizeof(float), p1 * sizeof(float), O[i] * sizeof(float)) + 1.0f;
+      dest[i] = __buffer_load_dword_generic(A_d, p0, p1 * sizeof(float), O[i] * sizeof(float)) + 1.0f;
     }
 
     // Store results back
@@ -375,8 +375,8 @@ __global__ void vector_plus1_buffer_store_generic(float* A_d) {
 
     // __buffer_load_dword_genric(ptr, offset) = *(ptr + offset)
     for (unsigned i = 0; i < N_per_thread; ++i) {
-      float result = __buffer_load_dword_generic(A_d, p0 * sizeof(float), p1 * sizeof(float), O[i] * sizeof(float)) + 1.0f;
-      __buffer_store_dword_generic(A_d, p0 * sizeof(float), p1 * sizeof(float), O[i] * sizeof(float), result);
+      float result = __buffer_load_dword_generic(A_d, p0, p1 * sizeof(float), O[i] * sizeof(float)) + 1.0f;
+      __buffer_store_dword_generic(A_d, p0, p1 * sizeof(float), O[i] * sizeof(float), result);
     }
 }
 
