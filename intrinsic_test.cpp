@@ -16,6 +16,9 @@ typedef int __attribute__((ext_vector_type(4))) intx4;
 __device__
 float __llvm_amdgcn_buffer_load(intx4 rsrc, unsigned vindex, unsigned offset, bool glc, bool slc) __asm("llvm.amdgcn.buffer.load");
 
+__device__
+void __llvm_amdgcn_buffer_store(float vdata, intx4 rsrc, unsigned vindex, unsigned offset, bool glc, bool slc) __asm("llvm.amdgcn.buffer.store");
+
 __global__ void kernel(float* A_d) {
     unsigned index = (hipBlockIdx_x * hipBlockDim_x + hipThreadIdx_x);
     unsigned offset = index * sizeof(float);
@@ -29,7 +32,8 @@ __global__ void kernel(float* A_d) {
     reinterpret_cast<int*>(&input)[3] = 0x00027000;
 
     // original logic in C:
-    A_d[index] = __llvm_amdgcn_buffer_load(input, index, offset, false, false);
+    float v = __llvm_amdgcn_buffer_load(input, index, offset, false, false);
+    __llvm_amdgcn_buffer_store(v, input, index, offset, false, false);
 }
 
 template<typename T>
