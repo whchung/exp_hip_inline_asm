@@ -39,8 +39,8 @@ __global__ void kernel(float* A_d) {
     reinterpret_cast<int*>(&input)[3] = 0x00027000;
 
     // original logic in C:
-    float v = __llvm_amdgcn_buffer_load(input, index, offset, false, false);
-    __llvm_amdgcn_buffer_store(v, input, index, offset, false, false);
+    float v = __llvm_amdgcn_buffer_load(input, 0, offset, false, false);
+    __llvm_amdgcn_buffer_store(v, input, 0, offset, false, false);
 }
 
 __global__ void kernelx4(floatx4* A_d) {
@@ -56,8 +56,8 @@ __global__ void kernelx4(floatx4* A_d) {
     reinterpret_cast<int*>(&input)[3] = 0x00027000;
 
     // original logic in C:
-    floatx4 v = __llvm_amdgcn_buffer_loadx4(input, index, offset, false, false);
-    __llvm_amdgcn_buffer_storex4(v, input, index, offset, false, false);
+    floatx4 v = __llvm_amdgcn_buffer_loadx4(input, 0, offset, false, false);
+    __llvm_amdgcn_buffer_storex4(v, input, 0, offset, false, false);
 }
 
 template<typename T>
