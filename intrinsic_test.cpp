@@ -12,12 +12,19 @@
 
 
 typedef int __attribute__((ext_vector_type(4))) intx4;
+typedef float __attribute__((ext_vector_type(4))) floatx4;
 
 __device__
 float __llvm_amdgcn_buffer_load(intx4 rsrc, unsigned vindex, unsigned offset, bool glc, bool slc) __asm("llvm.amdgcn.buffer.load");
 
 __device__
+floatx4 __llvm_amdgcn_buffer_loadx4(intx4 rsrc, unsigned vindex, unsigned offset, bool glc, bool slc) __asm("llvm.amdgcn.buffer.load.dwordx4");
+
+__device__
 void __llvm_amdgcn_buffer_store(float vdata, intx4 rsrc, unsigned vindex, unsigned offset, bool glc, bool slc) __asm("llvm.amdgcn.buffer.store");
+
+__device__
+void __llvm_amdgcn_buffer_storex4(floatx4 vdata, intx4 rsrc, unsigned vindex, unsigned offset, bool glc, bool slc) __asm("llvm.amdgcn.buffer.store.dwordx4");
 
 __global__ void kernel(float* A_d) {
     unsigned index = (hipBlockIdx_x * hipBlockDim_x + hipThreadIdx_x);
@@ -34,6 +41,23 @@ __global__ void kernel(float* A_d) {
     // original logic in C:
     float v = __llvm_amdgcn_buffer_load(input, index, offset, false, false);
     __llvm_amdgcn_buffer_store(v, input, index, offset, false, false);
+}
+
+__global__ void kernelx4(floatx4* A_d) {
+    unsigned index = (hipBlockIdx_x * hipBlockDim_x + hipThreadIdx_x);
+    unsigned offset = index * sizeof(floatx4);
+
+    intx4 input {0};
+    // fill in byte 0 - 1
+    *reinterpret_cast<floatx4**>(&input) = A_d;
+    // fill in byte 2
+    reinterpret_cast<int*>(&input)[2] = -1;
+    // fill in byte 3
+    reinterpret_cast<int*>(&input)[3] = 0x00027000;
+
+    // original logic in C:
+    floatx4 v = __llvm_amdgcn_buffer_loadx4(input, index, offset, false, false);
+    __llvm_amdgcn_buffer_storex4(v, input, index, offset, false, false);
 }
 
 template<typename T>
@@ -69,7 +93,11 @@ int main() {
     printf("info: copy Host2Device %p->%p %zu bytes\n", A_h, A_d, Nbytes);
     CHECK(hipMemcpy(A_d, A_h, Nbytes, hipMemcpyHostToDevice));
 
+    // buffer_load/store_dword
     launchTestKernel(kernel, N, 256, 1, 1, A_d);
+
+    // buffer_load/store_dwordx4
+    launchTestKernel<floatx4>(kernelx4, N, 256, 1, 1, reinterpret_cast<floatx4*>(A_d));
     hipStreamSynchronize(nullptr);
 
     printf("info: copy Device2Host %p->%p %zu bytes\n", A_d, A_h, Nbytes);
